@@ -1,0 +1,71 @@
+name: Build Binaries
+
+on:
+  # 允许手动从 GitHub Actions 页面触发此工作流
+  workflow_dispatch:
+  # 每次向 main 分支推送代码时自动触发
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    # 使用最新的 Windows 环境
+    runs-on: windows-latest
+    
+    # 定义构建矩阵，用于并行构建多种配置
+    strategy:
+      matrix:
+        include:
+          # 配置 1: 默认的 EXE (GNU, 无特性)
+          - name: RustiveDump-gnu-exe-default
+            target: gnu
+            command: "build"
+            features: ""
+            
+          # 配置 2: Shellcode (GNU, 启用所有特性)
+          - name: RustiveDump-gnu-shellcode-all-features
+            target: gnu
+            command: "pic-gnu"
+            features: "xor,remote,lsasrv"
+
+          # 配置 3: Shellcode (MSVC, 启用所有特性)
+          - name: RustiveDump-msvc-shellcode-all-features
+            target: msvc
+            command: "pic-msvc"
+            features: "xor,remote,lsasrv"
+
+    steps:
+    # 步骤 1: 检出代码
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # 步骤 2: 安装 MinGW-w64 (仅在构建 GNU 目标时需要)
+    - name: Install MinGW-w64 (for GNU target)
+      if: matrix.target == 'gnu'
+      run: choco install mingw --no-progress
+      
+    # 步骤 3: 安装项目所需的特定 Rust Nightly 工具链
+    - name: Install Rust Nightly Toolchains
+      run: |
+        rustup toolchain install nightly-2025-02-14-x86_64-pc-windows-gnu
+        rustup toolchain install nightly-2025-02-14-x86_64-pc-windows-msvc
+
+    # 步骤 4: 安装 cargo-make
+    - name: Install cargo-make
+      run: cargo install cargo-make
+
+    # 步骤 5: 执行构建
+    - name: Build Binary
+      run: cargo make --env FEATURES="${{ matrix.features }}" ${{ matrix.command }}
+      
+    # 步骤 6: 上传构建产物
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        # 使用矩阵中定义的名字来命名产物
+        name: ${{ matrix.name }}
+        # 上传路径：匹配 target 目录下的 exe 文件和根目录下的 bin 文件
+        path: |
+          target/**/*.exe
+          *.bin 
