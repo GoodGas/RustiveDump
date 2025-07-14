@@ -3,10 +3,7 @@ name: Build Binaries
 on:
   # 允许手动从 GitHub Actions 页面触发此工作流
   workflow_dispatch:
-  # 每次向 main 分支推送代码时自动触发
-  push:
-    branches:
-      - main
+
 
 jobs:
   build:
